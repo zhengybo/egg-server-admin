@@ -1,0 +1,150 @@
+<template lang="html">
+  <div class="tinymce">
+    <textarea v-model="content" :id="tinymceId" name="name" class="tinymce-textarea"></textarea>
+    <input
+    v-if="show"
+    v-show='false'
+    @change="change"
+    ref="fileLink"
+    type="file">
+    <form-list-data
+    @success="success"
+    :fields="fields"
+    :rules="rules"
+    :defaultValue="defaultValue"></form-list-data>
+  </div>
+</template>
+
+<script>
+import md5 from 'js-md5'
+import { Browser } from '@/js/public/tool'
+import { toolbar, plugins } from './params'
+import apis from '@/js/api'
+export default {
+  data(){
+    return {
+      content : '',
+      show : true,
+      ids : new Date().getTime(),
+      editor : null,
+      defaultValue : {
+        title : '',
+        file : null
+      },
+      files : [], // 进入文章的图片列表
+      fields : [
+        {
+          label : '标题',
+          key : 'title',
+          type : 'input'
+        },
+        {
+          label : '标题',
+          key : 'cover',
+          type : 'file'
+        },
+      ],
+      rules : {},
+      tinymce : null
+    }
+  },
+  computed : {
+    tinymceId(){
+      return `tinymce-home-${this.ids}`
+    }
+  },
+  mounted(){
+    let tinymceInit = tinymce.init({
+      selector: `#${this.tinymceId}`,
+      language : 'zh_CN',
+      menubar : '',
+      toolbar,
+      plugins,
+      fontsize_formats: "14px 18px 24px",
+      convert_fonts_to_spans : true,
+      object_resizing : false,
+      content_css : './static/css/tinymce_self.css',
+      setup: (editor) => {
+        this.editor = editor;
+        editor.addButton('myimage', {
+          icon: 'image',
+          tooltip: "图片",
+          onclick: () => {
+            this.$refs.fileLink.click();
+          }
+        })
+      }
+    })
+
+  },
+  methods : {
+    success(obj){
+      let content = this.getEditorContent(this.editor.getContent());
+
+      this.$upload({
+        url : apis.uploadArticleFiles
+      })
+      console.log(content);
+
+    },
+    getSuffix(name){
+      return name.slice(name.lastIndexOf('.'))
+    },
+    getEditorContent(content){
+      let div = document.createElement('div');
+      div.innerHTML = content;
+      let imgs = [...div.querySelectorAll('img')];
+      imgs.forEach(img => (img.src = ''));
+      this.filterImg(imgs);
+      return div.innerHTML;
+    },
+    filterImg(imgs){ // 过滤出最后需要上传的图片
+      let imgsName = imgs.map(img => img.getAttribute('data-src'));
+      this.files = this.files.filter(file => !!~imgsName.indexOf(file.name));
+    },
+    change(e){
+      let file = e.target;
+      this.readFile(file).then(({target, files}) => {
+        let filename = `${this.getMd5()}${this.getSuffix(files.name)}`;
+        let file = Browser.dataURLtoFile(target.result, filename);
+        this.files.push(file);
+        this.editor.insertContent(`<div><img class="insert-image"
+        data-src="${filename}" src="${target.result}" alt="" /></div>`)
+        this.resetFile();
+
+      });
+    },
+    getMd5(){ // 生成唯一的图片名字
+      let token = this.$store.state.user.token;
+      return md5(`${token}-${new Date().getTime()}`)
+    },
+    resetFile(){
+      this.show = false;
+      this.$nextTick(() => {
+        this.show = true;
+      })
+    },
+    readFile(file){
+      const reader = new FileReader();
+      return new Promise((rs, rj) => {
+        let files = file.files[0];
+        reader.readAsDataURL(files);
+        reader.onload = e => rs({ target : e.target, files });
+      })
+
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.tinymce{
+  .mce-statusbar{
+    display: none!important;
+  }
+  .tinymce-textarea{
+    height: 500px;
+  }
+
+}
+</style>
