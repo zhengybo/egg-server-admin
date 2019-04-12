@@ -74,12 +74,12 @@ config.cluster = {
   config.mysql = {
     // 单数据库信息配置
     client: {
-      host: '120.55.59.79',
+      host: 'xxxx',
       // host : 'localhost',
-      port: '3306',
-      user: 'root',
-      password: 'zhenbo',
-      database: 'community'
+      port: 'xxxx',
+      user: 'xxxx',
+      password: 'xxxxx',
+      database: 'xxxxx'
     },
     app: true,
     agent: false,
